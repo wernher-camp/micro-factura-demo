@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // 🔹 Conexión MySQL (Railway)
 const pool = mysql.createPool({
   host: process.env.MYSQLHOST || "localhost",
-  user: process.env.MY
+  user: process.env.MY,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
