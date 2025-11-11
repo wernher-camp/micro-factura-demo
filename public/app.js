@@ -1,26 +1,37 @@
 const API = "/api/empleados";
 
 async function listar() {
-  const res = await fetch(API);
-  const data = await res.json();
-  const tbody = document.getElementById("tbody");
-  tbody.innerHTML = "";
-  data.forEach(e => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${e.id}</td>
-      <td>${e.nombreEmpleado}</td>
-      <td>${e.direccion||""}</td>
-      <td>${e.edad||""}</td>
-      <td>${e.puesto||""}</td>
-      <td>
-        <button class="btn btn-sm btn-info" onclick="editar(${e.id})">Editar</button>
-        <button class="btn btn-sm btn-danger" onclick="eliminar(${e.id})">Eliminar</button>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
 
+    if (!Array.isArray(data)) {
+      console.error("Respuesta inesperada:", data);
+      alert("Error al obtener empleados. Revisa el backend.");
+      return;
+    }
+
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+    data.forEach(e => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${e.id}</td>
+        <td>${e.nombreEmpleado}</td>
+        <td>${e.direccion || ""}</td>
+        <td>${e.edad || ""}</td>
+        <td>${e.puesto || ""}</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="editar(${e.id})">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminar(${e.id})">Eliminar</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Error al listar empleados:", err);
+    alert("No se pudo conectar al servidor.");
+  }
+}
 async function editar(id) {
   const res = await fetch(`${API}/${id}`);
   if (!res.ok) return alert("No encontrado");
