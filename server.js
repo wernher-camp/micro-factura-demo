@@ -17,13 +17,15 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // 🔹 Conexión MySQL (Railway)
 const pool = mysql.createPool({
-  host: process.env.MYSQLHOST || "localhost",
-  user: process.env.MY,
+  host: process.env.MYSQLHOST,
+  port: process.env.MYSQLPORT,
+  user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
-  port: process.env.MYSQLPORT,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
-
 // 🔹 Inicializar tabla si no existe
 async function initDB() {
   const conn = await pool.getConnection();
@@ -42,19 +44,27 @@ async function initDB() {
 }
 initDB().catch((err) => console.error("Error al inicializar BD:", err));
 
-// 🔹 Endpoints API
-app.get("/api/empleados", (req, res) => {
-  connection.query("SELECT * FROM empleados", (err, results) => {
-    if (err) {
-      console.error("Error en la consulta:", err);
-      res.status(500).json({
-        error: "Error al obtener empleados",
-        detalle: err.message // 👈 mostrar detalle
-      });
-      return;
-    }
-    res.json(results);
+
+// Probar conexión al iniciar
+pool.getConnection()
+  .then(conn => {
+    console.log("✅ Conectado a MySQL en Railway");
+    conn.release();
+  })
+  .catch(err => {
+    console.error("❌ Error al conectar con MySQL:", err);
   });
+
+
+// 🔹 Endpoints API
+app.get("/api/empleados", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM empleados");
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Error al obtener empleados:", err);
+    res.status(500).json({ error: "Error al obtener empleados", detalle: err.message });
+  }
 });
 
 app.post("/api/empleados", async (req, res) => {
@@ -77,6 +87,7 @@ app.get("*", (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
 app.listen(PORT, () =>
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`)
 );
