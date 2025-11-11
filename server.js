@@ -45,8 +45,8 @@ initDB().catch((err) => console.error("Error al inicializar BD:", err));
 // 🔹 Endpoints API
 app.get("/api/empleados", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM empleados ORDER BY id");
-    res.json(rows);
+    const [rows] = await pool.query("SELECT * FROM empleados");
+    res.json(rows); // ✅ debe devolver directamente el array
   } catch (error) {
     console.error("Error al obtener empleados:", error);
     res.status(500).json({ error: "Error al obtener empleados" });
