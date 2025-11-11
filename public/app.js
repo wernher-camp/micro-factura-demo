@@ -1,126 +1,91 @@
-import express from "express";
-import mysql from "mysql2/promise";
-import cors from "cors";
-import bodyParser from "body-parser";
-import dotenv from "dotenv";
+const API = "/api/empleados";
 
-dotenv.config();
-const app = express();
-const PORT = process.env.PORT || 8080;
-
-app.use(cors());
-app.use(bodyParser.json());
-
-// 🔹 Conexión a la base de datos
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "empleados",
-  port: process.env.DB_PORT || 3306,
-});
-
-// 🔹 Obtener todos los empleados
-app.get("/api/empleados", async (req, res) => {
+async function listar() {
   try {
-    const [rows] = await pool.query("SELECT * FROM empleados");
-    res.json(rows);
-  } catch (error) {
-    console.error("Error al obtener empleados:", error);
-    res.status(500).json({ error: "Error al obtener empleados" });
-  }
-});
+    const res = await fetch(API);
+    const data = await res.json();
 
-// 🔹 Registrar un empleado nuevo
-app.post("/api/empleados", async (req, res) => {
-  try {
-    const { nombreEmpleado, direccion, edad, puesto } = req.body;
-
-    if (!nombreEmpleado || !direccion || !edad || !puesto) {
-      return res.status(400).json({ error: "Faltan datos requeridos" });
+    if (!Array.isArray(data)) {
+      console.error("Respuesta inesperada:", data);
+      alert("Error al obtener empleados. Revisa el backend.");
+      return;
     }
 
-    const [result] = await pool.query(
-      "INSERT INTO empleados (nombreEmpleado, direccion, edad, puesto) VALUES (?, ?, ?, ?)",
-      [nombreEmpleado, direccion, edad, puesto]
-    );
-
-    res.json({
-      id: result.insertId,
-      nombreEmpleado,
-      direccion,
-      edad,
-      puesto,
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+    data.forEach(e => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${e.id}</td>
+        <td>${e.nombreEmpleado}</td>
+        <td>${e.direccion || ""}</td>
+        <td>${e.edad || ""}</td>
+        <td>${e.puesto || ""}</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="editar(${e.id})">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminar(${e.id})">Eliminar</button>
+        </td>`;
+      tbody.appendChild(tr);
     });
-  } catch (error) {
-    console.error("Error al registrar empleado:", error);
-    res.status(500).json({
-      error: "Error al registrar empleado",
-      detalle: error.message,
+  } catch (err) {
+    console.error("Error al listar empleados:", err);
+    alert("No se pudo conectar al servidor.");
+  }
+}
+
+async function editar(id) {
+  const res = await fetch(`${API}/${id}`);
+  if (!res.ok) return alert("No encontrado");
+  const e = await res.json();
+  document.getElementById("empId").value = e.id;
+  document.getElementById("nombreEmpleado").value = e.nombreEmpleado;
+  document.getElementById("direccion").value = e.direccion||"";
+  document.getElementById("edad").value = e.edad||"";
+  document.getElementById("puesto").value = e.puesto||"";
+  document.getElementById("form-title").innerText = "Editar empleado";
+  document.getElementById("submitBtn").innerText = "Actualizar";
+}
+
+async function eliminar(id) {
+  if (!confirm("Eliminar empleado?")) return;
+  await fetch(`${API}/${id}`, { method: "DELETE" });
+  listar();
+}
+
+document.getElementById("cancelBtn").addEventListener("click", ()=> {
+  document.getElementById("empleadoForm").reset();
+  document.getElementById("empId").value = "";
+  document.getElementById("form-title").innerText = "Agregar empleado";
+  document.getElementById("submitBtn").innerText = "Guardar";
+});
+
+document.getElementById("empleadoForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const id = document.getElementById("empId").value;
+  const payload = {
+    nombreEmpleado: document.getElementById("nombreEmpleado").value,
+    direccion: document.getElementById("direccion").value,
+    edad: document.getElementById("edad").value || null,
+    puesto: document.getElementById("puesto").value
+  };
+  if (id) {
+    await fetch(`${API}/${id}`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+  } else {
+    await fetch(API, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
     });
   }
+  document.getElementById("empleadoForm").reset();
+  document.getElementById("empId").value = "";
+  document.getElementById("form-title").innerText = "Agregar empleado";
+  document.getElementById("submitBtn").innerText = "Guardar";
+  listar();
 });
 
-// 🔹 Editar empleado existente (corregido)
-app.put("/api/empleados/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombreEmpleado, direccion, edad, puesto } = req.body;
-
-    if (!nombreEmpleado || !direccion || !edad || !puesto) {
-      return res.status(400).json({ error: "Faltan datos requeridos" });
-    }
-
-    const [result] = await pool.query(
-      "UPDATE empleados SET nombreEmpleado = ?, direccion = ?, edad = ?, puesto = ? WHERE id = ?",
-      [nombreEmpleado, direccion, edad, puesto, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
-    }
-
-    // 🔹 Respuesta JSON válida
-    res.json({
-      message: "Empleado actualizado correctamente",
-      id,
-      nombreEmpleado,
-      direccion,
-      edad,
-      puesto,
-    });
-  } catch (error) {
-    console.error("Error al actualizar empleado:", error);
-    res.status(500).json({
-      error: "Error al actualizar empleado",
-      detalle: error.message,
-    });
-  }
-});
-
-// 🔹 Eliminar empleado
-app.delete("/api/empleados/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [result] = await pool.query("DELETE FROM empleados WHERE id = ?", [
-      id,
-    ]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
-    }
-
-    res.json({ message: "Empleado eliminado correctamente" });
-  } catch (error) {
-    console.error("Error al eliminar empleado:", error);
-    res.status(500).json({
-      error: "Error al eliminar empleado",
-      detalle: error.message,
-    });
-  }
-});
-
-// 🔹 Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto ${PORT}`);
-});
+listar();
