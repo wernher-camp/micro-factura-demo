@@ -43,17 +43,18 @@ async function initDB() {
 initDB().catch((err) => console.error("Error al inicializar BD:", err));
 
 // 🔹 Endpoints API
-app.get("/api/empleados", async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT * FROM empleados");
-    res.json(rows);
-  } catch (error) {
-    console.error("❌ Error detallado al obtener empleados:", error);
-    res.status(500).json({ 
-      error: "Error al obtener empleados", 
-      detalle: error.message 
-    });
-  }
+app.get("/api/empleados", (req, res) => {
+  connection.query("SELECT * FROM empleados", (err, results) => {
+    if (err) {
+      console.error("Error en la consulta:", err);
+      res.status(500).json({
+        error: "Error al obtener empleados",
+        detalle: err.message // 👈 mostrar detalle
+      });
+      return;
+    }
+    res.json(results);
+  });
 });
 
 app.post("/api/empleados", async (req, res) => {
