@@ -46,10 +46,13 @@ initDB().catch((err) => console.error("Error al inicializar BD:", err));
 app.get("/api/empleados", async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM empleados");
-    res.json(rows); // ✅ debe devolver directamente el array
+    res.json(rows);
   } catch (error) {
-    console.error("Error al obtener empleados:", error);
-    res.status(500).json({ error: "Error al obtener empleados" });
+    console.error("❌ Error detallado al obtener empleados:", error);
+    res.status(500).json({ 
+      error: "Error al obtener empleados", 
+      detalle: error.message 
+    });
   }
 });
 
