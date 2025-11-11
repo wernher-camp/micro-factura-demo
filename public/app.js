@@ -32,18 +32,26 @@ async function listar() {
     alert("No se pudo conectar al servidor.");
   }
 }
-async function editar(id) {
-  const res = await fetch(`${API}/${id}`);
-  if (!res.ok) return alert("No encontrado");
-  const e = await res.json();
-  document.getElementById("empId").value = e.id;
-  document.getElementById("nombreEmpleado").value = e.nombreEmpleado;
-  document.getElementById("direccion").value = e.direccion||"";
-  document.getElementById("edad").value = e.edad||"";
-  document.getElementById("puesto").value = e.puesto||"";
-  document.getElementById("form-title").innerText = "Editar empleado";
-  document.getElementById("submitBtn").innerText = "Actualizar";
-}
+
+app.put("/api/empleados/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombreEmpleado, direccion, edad, puesto } = req.body;
+    const [result] = await connection.query(
+      "UPDATE empleados SET nombreEmpleado = ?, direccion = ?, edad = ?, puesto = ? WHERE id = ?",
+      [nombreEmpleado, direccion, edad, puesto, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Empleado no encontrado" });
+    }
+
+    res.json({ message: "Empleado actualizado correctamente" });
+  } catch (error) {
+    console.error("Error al actualizar empleado:", error);
+    res.status(500).json({ error: "Error al actualizar empleado", detalle: error.message });
+  }
+});
 
 async function eliminar(id) {
   if (!confirm("Eliminar empleado?")) return;
