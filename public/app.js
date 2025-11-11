@@ -34,18 +34,38 @@ async function listar() {
 }
 
 async function editar(id) {
-  const res = await fetch(`${API}/${id}`);
-  if (!res.ok) return alert("No encontrado");
-  const e = await res.json();
-  document.getElementById("empId").value = e.id;
-  document.getElementById("nombreEmpleado").value = e.nombreEmpleado;
-  document.getElementById("direccion").value = e.direccion||"";
-  document.getElementById("edad").value = e.edad||"";
-  document.getElementById("puesto").value = e.puesto||"";
-  document.getElementById("form-title").innerText = "Editar empleado";
-  document.getElementById("submitBtn").innerText = "Actualizar";
-}
+  try {
+    const res = await fetch(`${API}/${id}`);
+    if (!res.ok) {
+      alert("Error al obtener empleado (HTTP " + res.status + ")");
+      return;
+    }
 
+    // Leer texto y convertir a JSON si aplica
+    const text = await res.text();
+    let e;
+    try {
+      e = JSON.parse(text);
+    } catch {
+      console.error("Respuesta no JSON:", text);
+      alert("El backend devolvió una respuesta no válida.");
+      return;
+    }
+
+    // Rellenar formulario
+    document.getElementById("empId").value = e.id;
+    document.getElementById("nombreEmpleado").value = e.nombreEmpleado || "";
+    document.getElementById("direccion").value = e.direccion || "";
+    document.getElementById("edad").value = e.edad || "";
+    document.getElementById("puesto").value = e.puesto || "";
+    document.getElementById("form-title").innerText = "Editar empleado";
+    document.getElementById("submitBtn").innerText = "Actualizar";
+
+  } catch (err) {
+    console.error("Error al editar empleado:", err);
+    alert("Error al conectar con el servidor.");
+  }
+}
 async function eliminar(id) {
   if (!confirm("Eliminar empleado?")) return;
   await fetch(`${API}/${id}`, { method: "DELETE" });
