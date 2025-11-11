@@ -70,6 +70,22 @@ app.get("/api/empleados", async (req, res) => {
   }
 });
 
+
+app.get("/api/empleados/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query("SELECT * FROM empleados WHERE id = ?", [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Empleado no encontrado" });
+    }
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("❌ Error al obtener empleado por ID:", error);
+    res.status(500).json({ error: "Error al obtener empleado", detalle: error.message });
+  }
+});
+
+
 app.post("/api/empleados", async (req, res) => {
   const { nombreEmpleado, direccion, edad, puesto } = req.body;
   try {
