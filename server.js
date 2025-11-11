@@ -13,12 +13,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public"))); // 👈 sirve el frontend
+app.use(express.static(path.join(__dirname, "public")));
 
 // 🔹 Conexión MySQL (Railway)
 const pool = mysql.createPool({
-  host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
+  host: process.env.MYSQLHOST || "localhost",
+  user: process.env.MY
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
