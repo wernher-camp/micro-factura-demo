@@ -1,14 +1,12 @@
-CREATE DATABASE IF NOT EXISTS empleados_db;
-USE empleados_db;
+-- Crea la base de datos si hace falta (opcional)
+CREATE DATABASE IF NOT EXISTS media_db;
+USE media_db;
 
-CREATE TABLE IF NOT EXISTS empleados (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombreEmpleado VARCHAR(150) NOT NULL,
-  direccion VARCHAR(255) DEFAULT NULL,
-  edad INT DEFAULT NULL,
-  puesto VARCHAR(120) DEFAULT NULL,
-  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS media_items (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  type ENUM('image','video','document') NOT NULL,
+  url TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-INSERT INTO empleados (nombreEmpleado, direccion, edad, puesto)
-VALUES ('Juan Perez','Calle Falsa 123',30,'Vendedor');
