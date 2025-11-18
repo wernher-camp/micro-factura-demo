@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import cors from "cors";
 import mysql from "mysql2/promise";
@@ -9,127 +10,127 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public"))); // sirve frontend
+app.use(express.static(path.join(__dirname, "public")));
 
-// ✅ Conexión MySQL (Railway)
+// --- Lectura flexible de variables de entorno (Railway compat)
+const DB_HOST = process.env.MYSQLHOST || process.env.DB_HOST || process.env.DB_HOSTNAME || "localhost";
+const DB_PORT = Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306);
+const DB_USER = process.env.MYSQLUSER || process.env.DB_USER || "root";
+const DB_PASS = process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || "";
+const DB_NAME = process.env.MYSQLDATABASE || process.env.DB_NAME || "media_db";
+const APP_PORT = Number(process.env.PORT || 8080);
+
+// Pool
 const pool = mysql.createPool({
-  host: process.env.MYSQLHOST,
-  port: process.env.MYSQLPORT,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQLDATABASE,
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASS,
+  database: DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
 
-// ✅ Verificar conexión al iniciar
-pool.getConnection()
-  .then(conn => {
-    console.log("✅ Conectado a MySQL en Railway");
-    conn.release();
-  })
-  .catch(err => {
-    console.error("❌ Error al conectar con MySQL:", err);
-  });
-
-// ✅ Inicializar tabla si no existe
+// Init DB: crear tabla si no existe
 async function initDB() {
   try {
     const conn = await pool.getConnection();
     await conn.query(`
-      CREATE TABLE IF NOT EXISTS empleados (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nombreEmpleado VARCHAR(150) NOT NULL,
-        direccion VARCHAR(255),
-        edad INT,
-        puesto VARCHAR(120),
-        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS media_items (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        type ENUM('image','video','document') NOT NULL,
+        url TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     conn.release();
-    console.log("✅ Tabla 'empleados' lista");
+    console.log("✅ Tabla media_items lista (DB)", DB_NAME);
   } catch (err) {
-    console.error("❌ Error al inicializar la base de datos:", err);
+    console.error("❌ Error inicializando DB:", err);
   }
 }
 initDB();
 
-// ✅ Endpoints API
-app.get("/api/empleados", async (req, res) => {
+// --- API CRUD
+app.get("/api/media", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM empleados");
+    const [rows] = await pool.query("SELECT * FROM media_items ORDER BY created_at DESC");
     res.json(rows);
-  } catch (error) {
-    console.error("❌ Error al obtener empleados:", error);
-    res.status(500).json({ error: "Error al obtener empleados", detalle: error.message });
+  } catch (err) {
+    console.error("Error GET /api/media:", err);
+    res.status(500).json({ error: "Error al obtener medios", detalle: err.message });
   }
 });
 
-
-app.get("/api/empleados/:id", async (req, res) => {
-  const { id } = req.params;
+app.get("/api/media/:id", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM empleados WHERE id = ?", [id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
-    }
+    const [rows] = await pool.query("SELECT * FROM media_items WHERE id = ?", [req.params.id]);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "No encontrado" });
     res.json(rows[0]);
-  } catch (error) {
-    console.error("❌ Error al obtener empleado por ID:", error);
-    res.status(500).json({ error: "Error al obtener empleado", detalle: error.message });
+  } catch (err) {
+    console.error("Error GET /api/media/:id", err);
+    res.status(500).json({ error: "Error al obtener medio", detalle: err.message });
   }
 });
 
-
-app.post("/api/empleados", async (req, res) => {
-  const { nombreEmpleado, direccion, edad, puesto } = req.body;
+app.post("/api/media", async (req, res) => {
   try {
+    const { title, type, url, description } = req.body;
+    if (!title || !type || !url) return res.status(400).json({ error: "Faltan campos obligatorios" });
     const [result] = await pool.query(
-      "INSERT INTO empleados (nombreEmpleado, direccion, edad, puesto) VALUES (?, ?, ?, ?)",
-      [nombreEmpleado, direccion, edad, puesto]
+      "INSERT INTO media_items (title, type, url, description) VALUES (?, ?, ?, ?)",
+      [title, type, url, description || null]
     );
-    res.status(201).json({ id: result.insertId });
-  } catch (error) {
-    console.error("❌ Error al registrar empleado:", error);
-    res.status(500).json({ error: "Error al registrar empleado", detalle: error.message });
+    const [rows] = await pool.query("SELECT * FROM media_items WHERE id = ?", [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Error POST /api/media:", err);
+    res.status(500).json({ error: "Error al crear medio", detalle: err.message });
   }
 });
 
-app.put("/api/empleados/:id", async (req, res) => {
-  const { id } = req.params;
-  const { nombreEmpleado, direccion, edad, puesto } = req.body;
+app.put("/api/media/:id", async (req, res) => {
   try {
-    const [result] = await pool.query(
-      "UPDATE empleados SET nombreEmpleado=?, direccion=?, edad=?, puesto=? WHERE id=?",
-      [nombreEmpleado, direccion, edad, puesto, id]
+    const { title, type, url, description } = req.body;
+    const { id } = req.params;
+    const [r] = await pool.query(
+      "UPDATE media_items SET title = ?, type = ?, url = ?, description = ? WHERE id = ?",
+      [title, type, url, description || null, id]
     );
-    res.json({ actualizado: result.affectedRows > 0 });
-  } catch (error) {
-    console.error("❌ Error al actualizar empleado:", error);
-    res.status(500).json({ error: "Error al actualizar empleado", detalle: error.message });
+    if (r.affectedRows === 0) return res.status(404).json({ error: "No encontrado" });
+    const [rows] = await pool.query("SELECT * FROM media_items WHERE id = ?", [id]);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error PUT /api/media/:id", err);
+    res.status(500).json({ error: "Error al actualizar", detalle: err.message });
   }
 });
 
-app.delete("/api/empleados/:id", async (req, res) => {
-  const { id } = req.params;
+app.delete("/api/media/:id", async (req, res) => {
   try {
-    const [result] = await pool.query("DELETE FROM empleados WHERE id = ?", [id]);
-    res.json({ eliminado: result.affectedRows > 0 });
-  } catch (error) {
-    console.error("❌ Error al eliminar empleado:", error);
-    res.status(500).json({ error: "Error al eliminar empleado", detalle: error.message });
+    const [r] = await pool.query("DELETE FROM media_items WHERE id = ?", [req.params.id]);
+    if (r.affectedRows === 0) return res.status(404).json({ error: "No encontrado" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Error DELETE /api/media/:id", err);
+    res.status(500).json({ error: "Error al eliminar", detalle: err.message });
   }
 });
 
-// ✅ Ruta fallback — devuelve el frontend
+// Fallback: servir frontend (SPA)
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
+// Start
+app.listen(APP_PORT, () => {
+  console.log(`🚀 Media Hub corriendo en puerto ${APP_PORT}`);
+  console.log("DB host:", DB_HOST, "port:", DB_PORT, "db:", DB_NAME);
+});
